@@ -1,0 +1,11 @@
+go 1.21.4
+
+use (
+	./determinants
+	./data_guard
+	./entry
+	./http
+	./my_database
+	./tools
+	./user
+)

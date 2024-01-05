@@ -1,0 +1,69 @@
+TODO:
+how does oracle dataguard work
+make statment package
+reinvent the naming convintion
+change the names of any exportable objects like UserIdt => user.Idt
+make function to remove duplicated value from accepts struct
+parse the error and convert the user and token slices to hexadecimal
+convert any user and token slices to hexadecimal for the user and vice versa
+make algorthim to close the circle debits by write new entries . it will work on seperated threed and it will lisen allways to the debits map variable
+make token language syntax chek and interpreter
+
+DOING:
+learn the git tutorial
+unit test the entry
+
+DONE:
+make function to init the maps variables
+make kv database for storing the entry hash for the user
+complete the map tUserIdTokenIdBalance 
+enhance the ErrorTest function
+make the sever interface
+make the srever interface for user
+change the package name in Errorf
+make every requast and respons as json
+i should to encode and decode every massege
+learn http package
+make the server gess with function should use
+make the size of the massege limitless
+complete the http to use it later in the code
+learn how to make server
+change the folder from api to client
+seperate the project to small packeges and add main packege, every folder contain folders(api,server,lib)
+make function to remove duplicated value from entry struct
+make error handeler function by index and package name
+change the struct of the entry to remove the map to make the sever have nil safty
+make the error index to handele the error better
+
+MAY BE NOT:
+make function call graph and packeges call graph
+make functions to get the requast and return the balance of token and user or any other data and send it to him to help him to make smart contract on his server and take from him charg for every requast
+edit go-callvis (edit the output photo to make all the package functions inside small border)
+make program to get all the symbols (type var const func) in program
+encode and decode the error and interface
+make package for the token to seperate it from the entry , i dont think it worth because of the cycle import error happen
+change the path of the database folder to make it predeterministic , i cant because the path is deffrent from linux and widows
+make smart contract packege => it will write entry if token_balance1>num1 and token_balance2>num2 true . it will run on server becuse that will be faster and i think it will make for me money for every smart contract
+make golang profiling
+edit go-callvis (make the input just the folder path, make it work with all packages not just main) it fails because the problem is the analyses package need main function and package . but is still need it to learn code fast
+make data flow graph
+
+
+
+
+
+
+STANDARDS:
+
+NOTES:
+Object-oriented languages are good when you have a fixed set of operations on things,
+and as your code evolves,
+you primarily add new things.
+This can be accomplished by adding new classes which implement existing methods,
+and the existing classes are left alone.
+
+Functional languages are good when you have a fixed set of things,
+and as your code evolves, 
+you primarily add new operations on existing things.
+This can be accomplished by adding new functions which compute with existing data types,
+and the existing functions are left alone.
