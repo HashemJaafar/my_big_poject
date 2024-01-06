@@ -10,7 +10,7 @@ import (
 
 func TestUrl(t *testing.T) {
 	url := Url("localhost", 3333, "/work")
-	tools.Println(url)
+	tools.Test(url, "http://localhost:3333/work")
 }
 
 const (
@@ -51,7 +51,7 @@ func Test(t *testing.T) {
 		tools.Test(err.Error(), "json: cannot unmarshal object into Go value of type error")
 	}
 	{
-		r, err := f4.Request(fmt.Errorf("jjjjj"))
+		r, err := f4.Request(fmt.Errorf("yes"))
 		tools.Test(r, "")
 		tools.Test(err.Error(), `json: cannot unmarshal object into Go value of type error
 500 Internal Server Error`)

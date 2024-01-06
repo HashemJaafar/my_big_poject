@@ -35,7 +35,7 @@ type networkClass[ReqT any, ResT any] struct {
 }
 
 func Create[ReqT any, ResT any](host string, port uint, pattern string, process func(req ReqT) (ResT, error)) networkClass[ReqT, ResT] {
-	var j ResT
+	var zero ResT
 	var s networkClass[ReqT, ResT]
 
 	s.Pattern = pattern
@@ -55,11 +55,11 @@ func Create[ReqT any, ResT any](host string, port uint, pattern string, process 
 		e := tools.Encode(req)
 		res, err := NewRequest(host, port, pattern, e)
 		if err != nil {
-			return j, err
+			return zero, err
 		}
 		d, err := tools.Decode[ResT](res)
 		if err != nil {
-			return j, err
+			return zero, err
 		}
 		return d, nil
 	}
@@ -72,25 +72,25 @@ func NewRequest(host string, port uint, pattern string, reqBodyByte []byte) ([]b
 
 	req, err := http.NewRequest(http.MethodPost, Url(host, port, pattern), bytes.NewReader(reqBodyByte))
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	client := http.Client{Timeout: 30 * time.Second}
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	defer res.Body.Close()
 
 	resBodyByte, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return []byte{}, fmt.Errorf("%s%v", resBodyByte, res.Status)
+		return nil, fmt.Errorf("%s%v", resBodyByte, res.Status)
 	}
 
 	return resBodyByte, nil

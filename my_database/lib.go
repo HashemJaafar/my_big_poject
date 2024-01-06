@@ -2,10 +2,13 @@ package database
 
 import (
 	"crypto/rand"
+	"determinants"
 	"tools"
 
-	badger "github.com/dgraph-io/badger/v3"
+	badger "github.com/dgraph-io/badger/v4"
 )
+
+const packageName = "my_database"
 
 type DB = *badger.DB
 
@@ -15,25 +18,29 @@ func Open(db *DB, path string) {
 	tools.PanicIfNotNil(err)
 }
 
-func Delete(db DB, key []byte) {
-	db.Update(func(txn *badger.Txn) error {
+func Delete(db DB, key []byte) error {
+	err := db.Update(func(txn *badger.Txn) error {
 		return txn.Delete(key)
 	})
+	return err
 }
 
-func Add(db DB, key []byte, value []byte) error {
-	_, err := Get(db, key)
-	if err == nil {
-		return tools.Errorf("my_database", 2, "key %v is used", key)
-	}
-	Update(db, key, value)
-	return nil
-}
+// func Add(db DB, key []byte, value []byte) error {
+// 	err := db.Update(func(txn *badger.Txn) error {
+// 		_, err := txn.Get(key)
+// 		if err == nil {
+// 			return tools.Errorf(packageName, 2, "key %v is used", key)
+// 		}
+// 		return txn.Set(key, value)
+// 	})
+// 	return err
+// }
 
 func Update(db DB, key []byte, value []byte) {
-	txn := db.NewTransaction(true)
-	defer txn.Commit()
-	txn.Set(key, value)
+	err := db.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, value)
+	})
+	tools.PanicIfNotNil(err)
 }
 
 func Get(db DB, key []byte) ([]byte, error) {
@@ -44,23 +51,22 @@ func Get(db DB, key []byte) ([]byte, error) {
 		if err != nil {
 			return err
 		}
-
-		err = item.Value(func(val []byte) error {
-			valCopy = val
-			return nil
-		})
+		valCopy, err = item.ValueCopy(nil)
 		return err
 	})
-	if err != nil && err.Error() == "Key not found" {
-		return valCopy, tools.Errorf("my_database", 1, "key %v not found", key)
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, tools.Errorf(packageName, 1, "key %v not found", key)
+		}
+		return nil, err
 	}
-	return valCopy, err
+
+	return valCopy, nil
 }
 
-func Read(db DB, function func(key, value []byte)) {
-	db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
+func View(db DB, function func(key, value []byte)) {
+	err := db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
@@ -71,15 +77,16 @@ func Read(db DB, function func(key, value []byte)) {
 		}
 		return nil
 	})
+	tools.PanicIfNotNil(err)
 }
 
-func NewKey(db DB, keyLen uint) []byte {
+func New64BitKey(db DB) [determinants.Len64Bit]byte {
 	for {
-		key := make([]byte, keyLen)
+		key := make([]byte, determinants.Len64Bit)
 		rand.Read(key)
 		_, err := Get(db, key)
 		if err != nil {
-			return key
+			return [determinants.Len64Bit]byte(key)
 		}
 	}
 }

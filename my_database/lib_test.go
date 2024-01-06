@@ -5,35 +5,36 @@ import (
 	"tools"
 )
 
+var db DB
+
+func TestMain(m *testing.M) {
+	Open(&db, "test")
+	defer db.Close()
+
+	m.Run()
+}
 func Test_getValue(t *testing.T) {
-	var testDb DB
-	Open(&testDb, "./test")
-	defer testDb.Close()
-
-	key := []byte{200}
+	key := []byte{200, 98}
 	value := []byte{55}
-	Update(testDb, key, value)
+	Update(db, key, value)
 
-	got, err := Get(testDb, key)
+	got, err := Get(db, key)
 	tools.Test(err, nil)
 	tools.Test(got, value)
 
 	key = []byte{8}
-	got, err = Get(testDb, key)
-	tools.TestE(err, "my_database", 1)
-	tools.Test(got, []byte(nil))
+	got, err = Get(db, key)
+	tools.TestE(err, packageName, 1)
+	tools.Test(got, nil)
 }
 
 func Test2(t *testing.T) {
 	var values [][]byte
 	var keys [][]byte
 
-	var testDb DB
-	Open(&testDb, "./test")
-	Read(testDb, func(key, value []byte) {
+	View(db, func(key, value []byte) {
 		values = append(values, value)
 		keys = append(keys, key)
 	})
-	tools.Println(len(keys))
-	tools.Println(len(values))
+	tools.Println(len(keys), len(values))
 }

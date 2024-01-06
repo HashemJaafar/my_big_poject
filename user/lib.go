@@ -55,7 +55,7 @@ func Server() {
 var Create = ht.Create[Password, Id](host, port, "/Create", func(req Password) (Id, error) {
 	password := req
 
-	id := Id(db.NewKey(userIdAndHash, determinants.Len64Bit))
+	id := Id(db.New64BitKey(userIdAndHash))
 	store(id, password)
 
 	return id, nil

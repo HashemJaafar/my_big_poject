@@ -10,10 +10,13 @@ import (
 	"tools"
 )
 
-func TestCheckIfUserIdAndPasswordCorrect(t *testing.T) {
+func TestMain(m *testing.M) {
 	db.Open(&userIdAndHash, determinants.DBPath("userIdAndHash"))
 	defer userIdAndHash.Close()
 
+	m.Run()
+}
+func TestCheckIfUserIdAndPasswordCorrect(t *testing.T) {
 	_, a := GetHash.Process(Id{})
 	tools.TestE(a, packageName, 2)
 
@@ -37,10 +40,9 @@ func TestCheckIfUserIdAndPasswordCorrect(t *testing.T) {
 }
 
 func BenchmarkCheckIfUserIdAndPasswordCorrect(b *testing.B) {
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 1000; i++ {
 		TestCheckIfUserIdAndPasswordCorrect(&testing.T{})
 	}
-	userIdAndHash.Close()
 }
 
 func TestGuessPassword(t *testing.T) {
@@ -135,10 +137,13 @@ func TestServer(t *testing.T) {
 }
 
 func Test(t *testing.T) {
-	db.Open(&userIdAndHash, determinants.DBPath("userIdAndHash"))
-	defer userIdAndHash.Close()
+	for i := 0; i < 1000; i++ {
+		TestCheckIfUserIdAndPasswordCorrect(&testing.T{})
+	}
 
-	db.Read(userIdAndHash, func(key, value []byte) {
-		fmt.Printf("%x\t%x\n", key, value)
+	i := 0
+	db.View(userIdAndHash, func(key, value []byte) {
+		i++
+		fmt.Printf("%v\t%x\t%x\n", i, key, value)
 	})
 }

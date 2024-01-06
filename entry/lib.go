@@ -529,7 +529,7 @@ func Server() {
 	defer gvUserIdEntryIdStep3AccountingDataBase.Close()
 	defer gvTokenIdTokenFolderDataBase.Close()
 
-	db.Read(gvEntryIdEntryStep3DataBase, func(key, value []byte) {
+	db.View(gvEntryIdEntryStep3DataBase, func(key, value []byte) {
 		wait.Add(1)
 		go func() {
 			d, err := tools.Decode[entryStep3](value)
@@ -604,7 +604,7 @@ var AddEntry = ht.Create[ReqTAddEntry, any](host, port, "/AddEntry", func(req Re
 		return nil, err
 	}
 
-	entryId := db.NewKey(gvEntryIdEntryStep2DataBase, determinants.Len256Bit)
+	entryId := db.New64BitKey(gvEntryIdEntryStep2DataBase)
 	err = storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryStep2Idt(entryId), encodeEntryStep1To2(entry1))
 	if err != nil {
 		return nil, err
@@ -705,7 +705,10 @@ var GetEntryStep2 = ht.Create[entryStep2Idt, entryStep2](host, port, "/GetEntryS
 		return entryStep2{}, err
 	}
 	d, err := tools.Decode[entryStep2](value)
-	return d, err
+	if err != nil {
+		return entryStep2{}, err
+	}
+	return d, nil
 })
 
 var GetEntryStep3 = ht.Create[entryStep3Id, entryStep3](host, port, "/GetEntryStep3", func(req entryStep3Id) (entryStep3, error) {
@@ -714,7 +717,10 @@ var GetEntryStep3 = ht.Create[entryStep3Id, entryStep3](host, port, "/GetEntrySt
 		return entryStep3{}, err
 	}
 	d, err := tools.Decode[entryStep3](value)
-	return d, err
+	if err != nil {
+		return entryStep3{}, err
+	}
+	return d, nil
 })
 
 var GetAllEntryStep2 = ht.Create[user.Id, []entryStep2](host, port, "/GetAllEntryStep2", func(req user.Id) ([]entryStep2, error) {
@@ -738,7 +744,7 @@ var GetToken = ht.Create[TokenIdt, Token](host, port, "/GetToken", func(req Toke
 	if err != nil {
 		return Token{}, err
 	}
-	return d, err
+	return d, nil
 })
 
 var CreateToken = ht.Create[Token, TokenIdt](host, port, "/CreateToken", func(req Token) (TokenIdt, error) {

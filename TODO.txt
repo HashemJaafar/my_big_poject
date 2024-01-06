@@ -1,4 +1,5 @@
 TODO:
+unit test the entry
 how does oracle dataguard work
 make statment package
 reinvent the naming convintion
@@ -10,10 +11,12 @@ make algorthim to close the circle debits by write new entries . it will work on
 make token language syntax chek and interpreter
 
 DOING:
+i should start to design the token language and info that mean stop programming for a while	//TODO Check the token code,Check the token info
 learn the git tutorial
-unit test the entry
 
 DONE:
+fix the bug in the test output , he allways return the prviuse output he dont run the test
+relearn badger db ,the problem was not in my code but it was with the test extention n vscode , i relized this because i use time.sleep and he dont sleep he just return the prviuse output test
 make function to init the maps variables
 make kv database for storing the entry hash for the user
 complete the map tUserIdTokenIdBalance 
@@ -54,6 +57,7 @@ make data flow graph
 
 
 STANDARDS:
+if there is error allways return zero value
 
 NOTES:
 Object-oriented languages are good when you have a fixed set of operations on things,
