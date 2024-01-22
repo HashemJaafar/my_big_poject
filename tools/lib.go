@@ -1,14 +1,18 @@
 package tools
 
 import (
+	"bytes"
 	"crypto/sha256"
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
-	"log"
 	"math"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"strings"
+	"time"
+
+	fuzz "github.com/google/gofuzz"
 )
 
 const (
@@ -71,16 +75,13 @@ func Hash64Bit(b []byte) [8]byte {
 	return s1
 }
 
-func PanicIfNotNil(err error) {
+func Panic(err error) {
 	if err != nil {
-		log.Panicln(err)
+		panic(err)
 	}
 }
 
-var (
-	failTestNumber uint
-	PanicIfError   bool = true
-)
+var PanicIfError bool = true
 
 // func GetFunctionName(i interface{}) string {
 // 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
@@ -117,17 +118,18 @@ func ErrorHandler(packageName string, errorIndex uint, err error) bool {
 	return true
 }
 
-func Encode(decoded any) []byte {
-	//use gob in future for fast encode/decode
-	encoded, err := json.Marshal(decoded)
-	PanicIfNotNil(err)
-	return encoded
+func Encode(decoded any) ([]byte, error) {
+	var network bytes.Buffer
+	enc := gob.NewEncoder(&network)
+	err := enc.Encode(decoded)
+	return network.Bytes(), err
 }
 
 func Decode[t any](encoded []byte) (t, error) {
-	//use gob in future for fast encode/decode
 	var decoded t
-	err := json.Unmarshal(encoded, &decoded)
+	network := bytes.NewReader(encoded)
+	dec := gob.NewDecoder(network)
+	err := dec.Decode(&decoded)
 	return decoded, err
 }
 
@@ -160,16 +162,39 @@ func TestE(err error, packageName string, errorIndex uint) {
 
 func printTest(isEqual bool, actual, expected any, stack string) {
 	if !isEqual {
-		fmt.Printf("%v%#v\n", ColorBlue, actual)
-		fmt.Printf("%v%#v\n", ColorYellow, expected)
-
-		failTestNumber++
-		fmt.Println(ColorRed, stack, "\t", failTestNumber, ColorReset)
+		fmt.Println(ColorRed, stack, ColorReset)
+		fmt.Printf("%v%#v\n", ColorYellow, actual)
+		fmt.Printf("%v%#v%v\n", ColorBlue, expected, ColorReset)
 
 		if PanicIfError {
-			log.Panic()
+			os.Exit(1)
 		}
 		return
 	}
 	fmt.Println(ColorGreen, stack, ColorReset)
+}
+
+func Rand[t any]() t {
+	var result t
+	fuzz.New().Fuzz(&result)
+	time.Sleep(1 * time.Microsecond)
+	return result
+}
+
+type t time.Time
+
+func Time() t {
+	return t(time.Now())
+}
+func (s t) Print() {
+	fmt.Println(ColorBlue, Stack(8), ColorReset)
+	fmt.Printf("it takes %v\n", time.Since(time.Time(s)))
+}
+
+func Append[t any](l ...[]t) []t {
+	var l2 []t
+	for _, v := range l {
+		l2 = append(l2, v...)
+	}
+	return l2
 }

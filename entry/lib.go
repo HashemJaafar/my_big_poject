@@ -111,7 +111,7 @@ func getAllEntries[t entryStep2 | entryStep3](userId user.Id, userDB, entryDB db
 	}
 	var entries []t
 	entriesId, err := tools.Decode[[]entryStep2Idt](value)
-	tools.PanicIfNotNil(err)
+	tools.Panic(err)
 	for _, v := range entriesId {
 		value, err := db.Get(entryDB, v[:])
 		if err != nil {
@@ -119,7 +119,7 @@ func getAllEntries[t entryStep2 | entryStep3](userId user.Id, userDB, entryDB db
 		}
 
 		entry, err := tools.Decode[t](value)
-		tools.PanicIfNotNil(err)
+		tools.Panic(err)
 		entries = append(entries, entry)
 	}
 	return entries, nil
@@ -137,7 +137,7 @@ func entryStep2GetF(entryId entryStep2Idt) (entryStep2, error) {
 	}
 
 	result, err := tools.Decode[entryStep2](value)
-	tools.PanicIfNotNil(err)
+	tools.Panic(err)
 	return result, nil
 }
 
@@ -176,7 +176,7 @@ func MakeOfflineAccountingCheck(tripleEntry *[]SingleEntry) error {
 		return tools.Errorf(packageName, 1, "there is no users, should be one or two")
 	}
 
-	var tripleEntry1 tUserIdTokenIdBalance
+	tripleEntry1 := tUserIdTokenIdBalance{}
 	encodeTripleEntryTotUserIdTokenIdBalance(tripleEntry1, tripleEntry)
 
 	var userId1 user.Id
@@ -216,7 +216,7 @@ func MakeOfflineAccountingCheck(tripleEntry *[]SingleEntry) error {
 
 	for userId, value := range totalValue {
 		if value != 0 {
-			return tools.Errorf(packageName, 2, "the userId:%v have total value=%v and this is not equal to zero", userId, totalValue)
+			return tools.Errorf(packageName, 2, "the userId:%v have total value=%v and this is not equal to zero", userId, value)
 		}
 	}
 
@@ -294,19 +294,19 @@ func checkTheTokensIfAccepts(usersThatAccepted Accepts, entry []SingleEntry) err
 	return nil
 }
 
-func storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryId entryStep2Idt, entry entryStep2) error {
+func storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryId entryStep2Idt, entry entryStep2) (entryStep3Id, error) {
 	var err error
 
 	err = checkIfTheSignOfQuantityEqualToSignOfValueAfterTheEntryIsAdded(entry.TripleEntry)
 	if err != nil {
 		entryStep2StoreF(entryId, entry)
-		return err
+		return entryStep3Id{}, err
 	}
 
 	err = checkTheTokensIfAccepts(entry.Accepts, entry.TripleEntry)
 	if err != nil {
 		entryStep2StoreF(entryId, entry)
-		return err
+		return entryStep3Id{}, err
 	}
 
 	var wait sync.WaitGroup
@@ -323,17 +323,19 @@ func storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryId entryStep2Idt, entry e
 	}()
 
 	wait.Wait()
-	return nil
+	return entryStep3Id{}, nil
 }
 
 func entryStep2StoreF(entryId entryStep2Idt, entry entryStep2) {
-	entryAsBytes := tools.Encode(entry)
+	entryAsBytes, err := tools.Encode(entry)
+	tools.Panic(err)
 	db.Update(gvEntryIdEntryStep2DataBase, []byte(entryId[:]), entryAsBytes)
 }
 
 func entryStep3StoreF(entryId entryStep2Idt, entry entryStep2) {
 
-	entryStep3Encoded := tools.Encode(entry)
+	entryStep3Encoded, err := tools.Encode(entry)
+	tools.Panic(err)
 	entryStep3Idv := sha256.Sum256(entryStep3Encoded)
 	db.Update(gvEntryIdEntryStep3DataBase, entryStep3Idv[:], entryStep3Encoded)
 
@@ -354,13 +356,14 @@ func entryStep3StoreF(entryId entryStep2Idt, entry entryStep2) {
 			value, err := db.Get(gvUserIdEntryIdStep2DataBase, userId[:])
 			if err == nil {
 				entryStep2IdSlice, err = tools.Decode[[]entryStep2Idt](value)
-				tools.PanicIfNotNil(err)
+				tools.Panic(err)
 			}
 
 			index, isIn := tools.Find(entryId, entryStep2IdSlice)
 			if isIn {
 				entryStep2IdSlice = tools.DeleteAtIndex(entryStep2IdSlice, index)
-				entryStep2IdSliceEncoded := tools.Encode(entryStep2IdSlice)
+				entryStep2IdSliceEncoded, err := tools.Encode(entryStep2IdSlice)
+				tools.Panic(err)
 				db.Update(gvUserIdEntryIdStep2DataBase, userId[:], entryStep2IdSliceEncoded)
 			}
 		}
@@ -374,11 +377,12 @@ func entryStep3StoreF(entryId entryStep2Idt, entry entryStep2) {
 			value, err := db.Get(gvUserIdEntryIdStep3DataBase, userId[:])
 			if err == nil {
 				entryStep3IdSlice, err = tools.Decode[[]entryStep3Id](value)
-				tools.PanicIfNotNil(err)
+				tools.Panic(err)
 			}
 
 			entryStep3IdSlice = append(entryStep3IdSlice, entryStep3Idv)
-			entryStep3IdSliceEncoded := tools.Encode(entryStep3IdSlice)
+			entryStep3IdSliceEncoded, err := tools.Encode(entryStep3IdSlice)
+			tools.Panic(err)
 			db.Update(gvUserIdEntryIdStep3DataBase, userId[:], entryStep3IdSliceEncoded)
 		}
 		wait.Done()
@@ -533,7 +537,7 @@ func Server() {
 		wait.Add(1)
 		go func() {
 			d, err := tools.Decode[entryStep3](value)
-			tools.PanicIfNotNil(err)
+			tools.Panic(err)
 			storeEntryToVariables(d)
 			wait.Done()
 		}()
@@ -544,22 +548,22 @@ func Server() {
 
 	mux := http.NewServeMux()
 
-	ht.HandleFunc(mux, AddEntry.Pattern, AddEntry.Handle)
-	ht.HandleFunc(mux, AcceptEntry.Pattern, AcceptEntry.Handle)
-	ht.HandleFunc(mux, RemoveTheAccept.Pattern, RemoveTheAccept.Handle)
-	ht.HandleFunc(mux, EditEntry.Pattern, EditEntry.Handle)
-	ht.HandleFunc(mux, GetEntryStep2.Pattern, GetEntryStep2.Handle)
-	ht.HandleFunc(mux, GetEntryStep3.Pattern, GetEntryStep3.Handle)
-	ht.HandleFunc(mux, GetAllEntryStep2.Pattern, GetAllEntryStep2.Handle)
-	ht.HandleFunc(mux, GetAllEntryStep3.Pattern, GetAllEntryStep3.Handle)
-	ht.HandleFunc(mux, GetAllEntryStep3Accounting.Pattern, GetAllEntryStep3Accounting.Handle)
-	ht.HandleFunc(mux, GetToken.Pattern, GetToken.Handle)
-	ht.HandleFunc(mux, CreateToken.Pattern, CreateToken.Handle)
-	ht.HandleFunc(mux, UserIdBalances.Pattern, UserIdBalances.Handle)
-	ht.HandleFunc(mux, TokenIdBalances.Pattern, TokenIdBalances.Handle)
-	ht.HandleFunc(mux, UserIdTokenIdBalance.Pattern, UserIdTokenIdBalance.Handle)
-	ht.HandleFunc(mux, TokenIdTotalBalance.Pattern, TokenIdTotalBalance.Handle)
-	ht.HandleFunc(mux, LastTradeTable.Pattern, LastTradeTable.Handle)
+	AddEntry.Handle(mux)
+	AcceptEntry.Handle(mux)
+	RemoveTheAccept.Handle(mux)
+	EditEntry.Handle(mux)
+	GetEntryStep2.Handle(mux)
+	GetEntryStep3.Handle(mux)
+	GetAllEntryStep2.Handle(mux)
+	GetAllEntryStep3.Handle(mux)
+	GetAllEntryStep3Accounting.Handle(mux)
+	GetToken.Handle(mux)
+	CreateToken.Handle(mux)
+	UserIdBalances.Handle(mux)
+	TokenIdBalances.Handle(mux)
+	UserIdTokenIdBalance.Handle(mux)
+	TokenIdTotalBalance.Handle(mux)
+	LastTradeTable.Handle(mux)
 
 	ht.ListenAndServe(mux, host, port)
 }
@@ -569,7 +573,7 @@ type ReqTAddEntry struct {
 	Accepts []user.ReqTCheck
 }
 
-var AddEntry = ht.Create[ReqTAddEntry, any](host, port, "/AddEntry", func(req ReqTAddEntry) (any, error) {
+var AddEntry = ht.Create(host, port, "/AddEntry", func(req ReqTAddEntry) (entryStep3Id, error) {
 	accepts := req.Accepts
 	entry1 := req.Entry1
 
@@ -577,7 +581,7 @@ var AddEntry = ht.Create[ReqTAddEntry, any](host, port, "/AddEntry", func(req Re
 
 	err = checkTheAcceptsIsValid(accepts)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	setTheUserIdSentTo(&entry1)
@@ -586,31 +590,31 @@ var AddEntry = ht.Create[ReqTAddEntry, any](host, port, "/AddEntry", func(req Re
 
 	isHeAccept := isTheWriterAccept(entry2.Writer, entry2.Accepts)
 	if !isHeAccept {
-		return nil, tools.Errorf(packageName, 4, "the writer did not accept")
+		return entryStep3Id{}, tools.Errorf(packageName, 4, "the writer did not accept")
 	}
 
 	err = MakeOfflineAccountingCheck(&entry2.TripleEntry)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	err = checkUserIdIfExistF(entry2)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	err = checkTokenIdIfExistF(entry1.TripleEntry)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	entryId := db.New64BitKey(gvEntryIdEntryStep2DataBase)
-	err = storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryStep2Idt(entryId), encodeEntryStep1To2(entry1))
+	entryId3, err := storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryStep2Idt(entryId), encodeEntryStep1To2(entry1))
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
-	return nil, nil
+	return entryId3, nil
 })
 
 type ReqTEntryIdAndAccepts struct {
@@ -618,7 +622,7 @@ type ReqTEntryIdAndAccepts struct {
 	Accepts []user.ReqTCheck
 }
 
-var AcceptEntry = ht.Create[ReqTEntryIdAndAccepts, any](host, port, "/AcceptEntry", func(req ReqTEntryIdAndAccepts) (any, error) {
+var AcceptEntry = ht.Create(host, port, "/AcceptEntry", func(req ReqTEntryIdAndAccepts) (entryStep3Id, error) {
 	accepts := req.Accepts
 	entryId := req.EntryId
 
@@ -626,25 +630,25 @@ var AcceptEntry = ht.Create[ReqTEntryIdAndAccepts, any](host, port, "/AcceptEntr
 
 	err = checkTheAcceptsIsValid(accepts)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	entry, err := entryStep2GetF(entryId)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
 	addTheAccepts(entry.Accepts, accepts)
 
-	err = storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryId, entry)
+	entryId3, err := storeTheEntryIfTokensAcceptsAndTheSignIsSame(entryId, entry)
 	if err != nil {
-		return nil, err
+		return entryStep3Id{}, err
 	}
 
-	return nil, nil
+	return entryId3, nil
 })
 
-var RemoveTheAccept = ht.Create[ReqTEntryIdAndAccepts, any](host, port, "/RemoveTheAccept", func(req ReqTEntryIdAndAccepts) (any, error) {
+var RemoveTheAccept = ht.Create(host, port, "/RemoveTheAccept", func(req ReqTEntryIdAndAccepts) (ht.Useless, error) {
 	accepts := req.Accepts
 	entryId := req.EntryId
 
@@ -652,12 +656,12 @@ var RemoveTheAccept = ht.Create[ReqTEntryIdAndAccepts, any](host, port, "/Remove
 
 	err = checkTheAcceptsIsValid(accepts)
 	if err != nil {
-		return nil, err
+		return ht.Useless{}, err
 	}
 
 	entry, err := entryStep2GetF(entryId)
 	if err != nil {
-		return nil, err
+		return ht.Useless{}, err
 	}
 
 	// addTheAccepts(entry.Accepts, accepts, false)
@@ -666,10 +670,12 @@ var RemoveTheAccept = ht.Create[ReqTEntryIdAndAccepts, any](host, port, "/Remove
 	if !isHeAccept {
 		db.Delete(gvEntryIdEntryStep2DataBase, []byte(entryId[:]))
 	} else {
-		db.Update(gvEntryIdEntryStep2DataBase, []byte(entryId[:]), tools.Encode(entry))
+		e, err := tools.Encode(entry)
+		tools.Panic(err)
+		db.Update(gvEntryIdEntryStep2DataBase, []byte(entryId[:]), e)
 	}
 
-	return nil, nil
+	return ht.Useless{}, nil
 })
 
 type ReqTEditEntry struct {
@@ -678,7 +684,7 @@ type ReqTEditEntry struct {
 	SendTo  []user.Id
 }
 
-var EditEntry = ht.Create[ReqTEditEntry, any](host, port, "/EditEntry", func(req ReqTEditEntry) (any, error) {
+var EditEntry = ht.Create(host, port, "/EditEntry", func(req ReqTEditEntry) (ht.Useless, error) {
 	entryId := req.EntryId
 	writer := req.Writer
 
@@ -686,20 +692,22 @@ var EditEntry = ht.Create[ReqTEditEntry, any](host, port, "/EditEntry", func(req
 
 	_, err = user.Check.Request(writer)
 	if err != nil {
-		return nil, err
+		return ht.Useless{}, err
 	}
 
 	entry, err := entryStep2GetF(entryId)
 	if err != nil {
-		return nil, err
+		return ht.Useless{}, err
 	}
 
-	db.Update(gvEntryIdEntryStep2DataBase, []byte(entryId[:]), tools.Encode(entry))
+	e, err := tools.Encode(entry)
+	tools.Panic(err)
+	db.Update(gvEntryIdEntryStep2DataBase, []byte(entryId[:]), e)
 
-	return nil, nil
+	return ht.Useless{}, nil
 })
 
-var GetEntryStep2 = ht.Create[entryStep2Idt, entryStep2](host, port, "/GetEntryStep2", func(req entryStep2Idt) (entryStep2, error) {
+var GetEntryStep2 = ht.Create(host, port, "/GetEntryStep2", func(req entryStep2Idt) (entryStep2, error) {
 	value, err := db.Get(gvEntryIdEntryStep2DataBase, req[:])
 	if err != nil {
 		return entryStep2{}, err
@@ -711,7 +719,7 @@ var GetEntryStep2 = ht.Create[entryStep2Idt, entryStep2](host, port, "/GetEntryS
 	return d, nil
 })
 
-var GetEntryStep3 = ht.Create[entryStep3Id, entryStep3](host, port, "/GetEntryStep3", func(req entryStep3Id) (entryStep3, error) {
+var GetEntryStep3 = ht.Create(host, port, "/GetEntryStep3", func(req entryStep3Id) (entryStep3, error) {
 	value, err := db.Get(gvEntryIdEntryStep3DataBase, req[:])
 	if err != nil {
 		return entryStep3{}, err
@@ -723,19 +731,19 @@ var GetEntryStep3 = ht.Create[entryStep3Id, entryStep3](host, port, "/GetEntrySt
 	return d, nil
 })
 
-var GetAllEntryStep2 = ht.Create[user.Id, []entryStep2](host, port, "/GetAllEntryStep2", func(req user.Id) ([]entryStep2, error) {
+var GetAllEntryStep2 = ht.Create(host, port, "/GetAllEntryStep2", func(req user.Id) ([]entryStep2, error) {
 	return getAllEntries[entryStep2](user.Id(req), gvUserIdEntryIdStep2DataBase, gvEntryIdEntryStep2DataBase)
 })
 
-var GetAllEntryStep3 = ht.Create[user.Id, []entryStep3](host, port, "/GetAllEntryStep3", func(req user.Id) ([]entryStep3, error) {
+var GetAllEntryStep3 = ht.Create(host, port, "/GetAllEntryStep3", func(req user.Id) ([]entryStep3, error) {
 	return getAllEntries[entryStep3](user.Id(req), gvUserIdEntryIdStep3DataBase, gvEntryIdEntryStep3DataBase)
 })
 
-var GetAllEntryStep3Accounting = ht.Create[user.Id, []entryStep3](host, port, "/GetAllEntryStep3Accounting", func(req user.Id) ([]entryStep3, error) {
+var GetAllEntryStep3Accounting = ht.Create(host, port, "/GetAllEntryStep3Accounting", func(req user.Id) ([]entryStep3, error) {
 	return getAllEntries[entryStep3](user.Id(req), gvUserIdEntryIdStep3AccountingDataBase, gvEntryIdEntryStep3DataBase)
 })
 
-var GetToken = ht.Create[TokenIdt, Token](host, port, "/GetToken", func(req TokenIdt) (Token, error) {
+var GetToken = ht.Create(host, port, "/GetToken", func(req TokenIdt) (Token, error) {
 	value, err := db.Get(gvTokenIdTokenFolderDataBase, req[:])
 	if err != nil {
 		return Token{}, err
@@ -747,14 +755,15 @@ var GetToken = ht.Create[TokenIdt, Token](host, port, "/GetToken", func(req Toke
 	return d, nil
 })
 
-var CreateToken = ht.Create[Token, TokenIdt](host, port, "/CreateToken", func(req Token) (TokenIdt, error) {
+var CreateToken = ht.Create(host, port, "/CreateToken", func(req Token) (TokenIdt, error) {
 	token := Token(req)
 	err := tokenProtocol(token)
 	if err != nil {
 		return TokenIdt{}, err
 	}
 
-	tokenByte := tools.Encode(token)
+	tokenByte, err := tools.Encode(token)
+	tools.Panic(err)
 	hash := tools.Hash64Bit(tokenByte)
 	_, err = db.Get(gvTokenIdTokenFolderDataBase, hash[:])
 	if err == nil {
@@ -764,18 +773,18 @@ var CreateToken = ht.Create[Token, TokenIdt](host, port, "/CreateToken", func(re
 	return hash, nil
 })
 
-var UserIdBalances = ht.Create[user.Id, map[TokenIdt]Balancet](host, port, "/UserIdBalances", func(req user.Id) (map[TokenIdt]Balancet, error) {
+var UserIdBalances = ht.Create(host, port, "/UserIdBalances", func(req user.Id) (map[TokenIdt]Balancet, error) {
 	value, ok := vUserIdTokenIdBalance[user.Id(req)]
 	if !ok {
-		return nil, tools.Errorf(packageName, 0, "this %v user don't have balance", user.Id(req))
+		return nil, tools.Errorf(packageName, 7, "this %v user don't have balance", user.Id(req))
 	}
 	return value, nil
 })
 
-var TokenIdBalances = ht.Create[TokenIdt, map[user.Id]Balancet](host, port, "/TokenIdBalances", func(req TokenIdt) (map[user.Id]Balancet, error) {
+var TokenIdBalances = ht.Create(host, port, "/TokenIdBalances", func(req TokenIdt) (map[user.Id]Balancet, error) {
 	value, ok := vTokenIdUserIdBalance[TokenIdt(req)]
 	if !ok {
-		return nil, tools.Errorf(packageName, 0, "this %v token don't have balance", TokenIdt(req))
+		return nil, tools.Errorf(packageName, 8, "this %v token don't have balance", TokenIdt(req))
 	}
 	return value, nil
 })
@@ -785,26 +794,91 @@ type ReqTUserIdTokenId struct {
 	TokenIdt
 }
 
-var UserIdTokenIdBalance = ht.Create[ReqTUserIdTokenId, Balancet](host, port, "/UserIdTokenIdBalance", func(req ReqTUserIdTokenId) (Balancet, error) {
+var UserIdTokenIdBalance = ht.Create(host, port, "/UserIdTokenIdBalance", func(req ReqTUserIdTokenId) (Balancet, error) {
 	value, ok := vUserIdTokenIdBalance[req.Id][req.TokenIdt]
 	if !ok {
-		return Balancet{}, tools.Errorf(packageName, 0, "this %v token with this %v user don't have balance", TokenIdt(req.TokenIdt), user.Id(req.Id))
+		return Balancet{}, tools.Errorf(packageName, 9, "this %v token with this %v user don't have balance", TokenIdt(req.TokenIdt), user.Id(req.Id))
 	}
 	return value, nil
 })
 
-var TokenIdTotalBalance = ht.Create[TokenIdt, Balancet](host, port, "/TokenIdTotalBalance", func(req TokenIdt) (Balancet, error) {
+var TokenIdTotalBalance = ht.Create(host, port, "/TokenIdTotalBalance", func(req TokenIdt) (Balancet, error) {
 	value, ok := vTokenIdBalance[TokenIdt(req)]
 	if !ok {
-		return Balancet{}, tools.Errorf(packageName, 0, "this %v token don't have balance", TokenIdt(req))
+		return Balancet{}, tools.Errorf(packageName, 10, "this %v token don't have balance", TokenIdt(req))
 	}
 	return value, nil
 })
 
-var LastTradeTable = ht.Create[TokenIdt, []trade](host, port, "/LastTradeTable", func(req TokenIdt) ([]trade, error) {
+var LastTradeTable = ht.Create(host, port, "/LastTradeTable", func(req TokenIdt) ([]trade, error) {
 	value, ok := gvLastTrade[TokenIdt(req)]
 	if !ok {
-		return []trade{}, tools.Errorf(packageName, 0, "this %v token didn't used in triple entry", TokenIdt(req))
+		return []trade{}, tools.Errorf(packageName, 11, "this %v token didn't used in triple entry", TokenIdt(req))
 	}
 	return value, nil
 })
+
+// // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// type TokenAddress determinants.Sha256
+// type token struct {
+// 	TokenAddress
+// 	Token
+// 	// data []byte
+// }
+// type Contract struct { // that will help me to make decentralized organizations and banks
+// 	ContractAddress     user.Address
+// 	ContractCodeAndData []byte
+// }
+// type singleEntry struct {
+// 	Address user.Address
+// 	TokenAddress
+// 	Quantity
+// 	Value
+// }
+
+// type TripleEntry []singleEntry
+
+// type BigEntry struct {
+// 	BalanceEvidence   []byte
+// 	Contracts         []Contract
+// 	Tokens            []token             // this will help me to prevent database for tokens
+// 	TripleEntries     []TripleEntry       // just to know i need it to be slice of triple entry because that will help me to write big entry with more than two person and that will help to close the circle debit
+// 	Notes             string              //
+// 	Nonce             uint                // this should allways bigger by one from the state to prevent double spending attack
+// 	WriterAddress     user.Address        //
+// 	PreviousBlockHash determinants.Sha512 // this will help me to make proof of work easy by using proof of Signature and to prevent double spending attack
+// 	// Time              time.Time // it work like nonce to prevent double spending attack, but i prefer to remove it to prevent the mutablity as possuble because he can use it as proof of work
+// }
+
+// type Accepte struct {
+// 	PublicKey rsa.PublicKey
+// 	Signature user.Signature // Signature for the acceptor of Hash
+// }
+
+// type Document struct { // this ordered by the init sequance
+// 	BigEntry      BigEntry
+// 	Hash          determinants.Sha512 // this hash should be allways uniqe in all the database
+// 	AllTheAccepte []Accepte           // this should be  one-time signature scheme
+// }
+
+// type Block struct {
+// 	Number                uint
+// 	PreviousBlockHash     determinants.Sha512
+// 	MerkleRootOfDocuments determinants.Sha512 // this will help me to delete the document to reduce the size of data and to remove the public key just for security
+// 	Balances              []byte              // this will stored as binary tree or Merkle Patricia tree or verkle tree and the values is the wallets hashes
+// 	Nonce                 []byte
+// }
+
+// // Documents         []Document          // this will not hashed with the rest of block it just embeded with merkle tree
+
+// type singleEntry1 struct {
+// 	TokenAddress
+// 	Quantity
+// 	Value
+// }
+
+// type wallet struct {
+// 	writeNumber uint
+// 	data        []byte
+// 	b           []singleEntry1
+// }

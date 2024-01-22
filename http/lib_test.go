@@ -1,8 +1,10 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 	"tools"
@@ -18,18 +20,26 @@ const (
 	port = 8000
 )
 
-func Test(t *testing.T) {
-	var f1 = Create[int, string](host, port, "/f1", func(req int) (string, error) { return fmt.Sprint(req), nil })
-	var f2 = Create[string, string](host, port, "/f2", func(req string) (string, error) { return fmt.Sprint(req), nil })
-	var f3 = Create[string, error](host, port, "/f3", func(req string) (error, error) { return fmt.Errorf(req), nil })
-	var f4 = Create[error, string](host, port, "/f4", func(req error) (string, error) { return req.Error(), nil })
+func TestCreate(t *testing.T) {
+	f1 := Create(host, port, "/f1", func(req int) (string, error) { return fmt.Sprint(req), nil })
+	f2 := Create(host, port, "/f2", func(req string) (string, error) { return fmt.Sprint(req), nil })
+	f3 := Create(host, port, "/f3", func(req string) (error, error) { return fmt.Errorf(req), nil })
+	f4 := Create(host, port, "/f4", func(req error) (string, error) { return req.Error(), nil })
+	f5 := Create(host, port, "/f5", func(req int) (any, error) { return nil, nil })
+	f6 := Create(host, port, "/f6", func(req any) (int, error) { return 10, nil })
+	f7 := Create(host, port, "/f7", func(req any) (string, error) { return fmt.Sprint(req), nil })
+	f8 := Create(host, port, "/f8", func(req bool) (Useless, error) { return struct{}{}, nil })
 
 	go func() {
 		mux := http.NewServeMux()
-		HandleFunc(mux, f1.Pattern, f1.Handle)
-		HandleFunc(mux, f2.Pattern, f2.Handle)
-		HandleFunc(mux, f3.Pattern, f3.Handle)
-		HandleFunc(mux, f4.Pattern, f4.Handle)
+		f1.Handle(mux)
+		f2.Handle(mux)
+		f3.Handle(mux)
+		f4.Handle(mux)
+		f5.Handle(mux)
+		f6.Handle(mux)
+		f7.Handle(mux)
+		f8.Handle(mux)
 		ListenAndServe(mux, host, port)
 	}()
 
@@ -48,12 +58,93 @@ func Test(t *testing.T) {
 	{
 		r, err := f3.Request("yes")
 		tools.Test(r, nil)
-		tools.Test(err.Error(), "json: cannot unmarshal object into Go value of type error")
+		tools.Test(err.Error(), "gob: type errors.errorString has no exported fields\n500 Internal Server Error")
 	}
 	{
 		r, err := f4.Request(fmt.Errorf("yes"))
 		tools.Test(r, "")
-		tools.Test(err.Error(), `json: cannot unmarshal object into Go value of type error
-500 Internal Server Error`)
+		tools.Test(err.Error(), "gob: type errors.errorString has no exported fields")
 	}
+	{
+		r, err := f5.Request(5)
+		tools.Test(r, nil)
+		tools.Test(err.Error(), "gob: cannot encode nil value\n500 Internal Server Error")
+	}
+	{
+		r, err := f6.Request("yes")
+		tools.Test(r, 0)
+		tools.Test(err.Error(), "gob: local interface type *interface {} can only be decoded from remote interface type; received concrete type string\n500 Internal Server Error")
+	}
+	{
+		r, err := f6.Request(errors.New("yes"))
+		tools.Test(r, 0)
+		tools.Test(err.Error(), "gob: type errors.errorString has no exported fields")
+	}
+	{
+		r, err := f7.Request(errors.New("yes"))
+		tools.Test(r, "")
+		tools.Test(err.Error(), "gob: type errors.errorString has no exported fields")
+	}
+	{
+		r, err := f8.Request(true)
+		tools.Test(r, struct{}{})
+		tools.Test(err, nil)
+	}
+}
+
+func Test(t *testing.T) {
+	f1 := Create(host, port, "/f1", func(req bool) (string, error) {
+		fmt.Println("f1 is work")
+		time.Sleep(10 * time.Second)
+		return fmt.Sprintf("f1 is complete %v", time.Now()), nil
+	})
+	f2 := Create(host, port, "/f2", func(req bool) (string, error) {
+		fmt.Println("f2 is work")
+		time.Sleep(10 * time.Second)
+		return fmt.Sprintf("f2 is complete %v", time.Now()), nil
+	})
+
+	go func() {
+		mux := http.NewServeMux()
+		f1.Handle(mux)
+		f2.Handle(mux)
+		ListenAndServe(mux, host, port)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	var wait sync.WaitGroup
+	wait.Add(10)
+
+	f := func(c networkClass[bool, string]) {
+		tools.Println(c.Request(true))
+		wait.Done()
+	}
+	go f(f1)
+	go f(f1)
+	go f(f1)
+	go f(f1)
+	go f(f1)
+	go f(f2)
+	go f(f2)
+	go f(f2)
+	go f(f2)
+	go f(f2)
+	wait.Wait()
+
+	time.Sleep(15 * time.Second)
+}
+
+func Test1(t *testing.T) {
+	go func() {
+		mux := http.NewServeMux()
+		HandleFunc1(mux, "/f1", func(req []byte) ([]byte, error) { return req, nil })
+		ListenAndServe(mux, host, port)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	b, err := NewRequest1(host, port, "/f1", []byte("hi there"))
+	fmt.Println(string(b))
+	fmt.Println(err)
 }

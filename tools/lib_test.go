@@ -64,19 +64,25 @@ func Test_standardError(t *testing.T) {
 func TestEncode(t *testing.T) {
 	{
 		s := []int{1, 1, 1, 1}
-		a, err := Decode[[]int](Encode(s))
+		e, err := Encode(s)
+		Test(err, nil)
+		a, err := Decode[[]int](e)
 		Test(a, s)
 		Test(err, nil)
 	}
 	{
 		s := []string{"1, 1, 1, 1", "ksoso"}
-		a, err := Decode[[]string](Encode(s))
+		e, err := Encode(s)
+		Test(err, nil)
+		a, err := Decode[[]string](e)
 		Test(a, s)
 		Test(err, nil)
 	}
 	{
 		s := "1, 1, 1, 1"
-		a, err := Decode[string](Encode(s))
+		e, err := Encode(s)
+		Test(err, nil)
+		a, err := Decode[string](e)
 		Test(a, s)
 		Test(err, nil)
 	}
@@ -86,25 +92,46 @@ func TestEncode(t *testing.T) {
 			B string
 		}
 		s := t{A: 1, B: "lol"}
-		a, err := Decode[t](Encode(s))
+		e, err := Encode(s)
+		Test(err, nil)
+		a, err := Decode[t](e)
 		Test(a, s)
 		Test(err, nil)
 	}
 	{
 		var s error
-		a, err := Decode[error](Encode(s))
+		e, err := Encode(s)
+		Test(err.Error(), "gob: cannot encode nil value")
+		a, err := Decode[error](e)
 		Test(a, s)
-		Test(err, nil)
+		Test(err.Error(), "EOF")
 	}
 	{
 		s := errors.New("lol")
-		a, err := Decode[error](Encode(s))
-		Test(a, s)
-		Test(err, nil)
+		e, err := Encode(s)
+		Test(err.Error(), "gob: type errors.errorString has no exported fields")
+		a, err := Decode[error](e)
+		Test(a, nil)
+		Test(err.Error(), "unexpected EOF")
 	}
 }
 
 func Test1(t *testing.T) {
 	names := lo.Uniq[string]([]string{"Samuel", "John", "Samuel"})
 	Println(names)
+}
+
+func Test2(t *testing.T) {
+	for i := 0; i < 400; i++ {
+		type t struct {
+			A int
+			B string
+		}
+		s := Rand[t]()
+		e, err := Encode(s)
+		Test(err, nil)
+		a, err := Decode[t](e)
+		Test(a, s)
+		Test(err, nil)
+	}
 }

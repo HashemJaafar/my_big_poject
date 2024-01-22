@@ -15,7 +15,7 @@ type DB = *badger.DB
 func Open(db *DB, path string) {
 	var err error
 	*db, err = badger.Open(badger.DefaultOptions(path))
-	tools.PanicIfNotNil(err)
+	tools.Panic(err)
 }
 
 func Delete(db DB, key []byte) error {
@@ -40,7 +40,7 @@ func Update(db DB, key []byte, value []byte) {
 	err := db.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, value)
 	})
-	tools.PanicIfNotNil(err)
+	tools.Panic(err)
 }
 
 func Get(db DB, key []byte) ([]byte, error) {
@@ -77,7 +77,7 @@ func View(db DB, function func(key, value []byte)) {
 		}
 		return nil
 	})
-	tools.PanicIfNotNil(err)
+	tools.Panic(err)
 }
 
 func New64BitKey(db DB) [determinants.Len64Bit]byte {

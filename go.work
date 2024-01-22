@@ -1,11 +1,13 @@
 go 1.21.4
 
 use (
+	./blockchain 
 	./determinants
-	./data_guard
 	./entry
 	./http
+	./load_balancer
 	./my_database
 	./tools
 	./user
+	./main
 )

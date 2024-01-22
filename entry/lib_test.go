@@ -181,3 +181,13 @@ func Test_algorithmToCloseAllDebit(t *testing.T) {
 	}
 	table.Flush()
 }
+
+func Test(t *testing.T) {
+	a := tools.Rand[[]SingleEntry]()
+	tools.Println(a)
+	err := MakeOfflineAccountingCheck(&a)
+	tools.Println(a, err)
+	// for _, v := range a {
+	// 	fmt.Println(v)
+	// }
+}
